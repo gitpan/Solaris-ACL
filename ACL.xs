@@ -1,9 +1,15 @@
 /*
  *
- * $Id: ACL.xs,v 1.9 2000/02/07 01:26:54 iroberts Exp $
+ * $Id: ACL.xs,v 1.10 2000/04/07 22:48:30 ian Exp $
  *
  * Change Log:
  * $Log: ACL.xs,v $
+ * Revision 1.10  2000/04/07 22:48:30  ian
+ * Fixed bug where attempts to give extra groups ACL access resulted in
+ * corresponding users getting access instead.
+ *
+ * Removed to useless declarations of acl_result variable.
+ *
  * Revision 1.9  2000/02/07 01:26:54  iroberts
  * * Added Id and Log strings to all files
  * * Now EXPORTs instead of EXPORT_OKing setfacl and getfacl
@@ -262,7 +268,7 @@ int populate_acl(aclent_t *acl_ents, int def, HV *acl_hash, HV *user_hash,
       return -1;
 
   if(group_hash)
-    if(add_acl_list(group_hash, USER | def, acl_ents, &i, num_acl_ents))
+    if(add_acl_list(group_hash, GROUP | def, acl_ents, &i, num_acl_ents))
       return -1;
 
   return 0; /* all's well that ends well... */
@@ -304,7 +310,6 @@ getfacl(file_name)
   SV **acl_list_hash;
   
   int num_acl_ents;
-  int acl_result;
   aclent_t *acl_ents;
   int i;
 
@@ -438,7 +443,6 @@ setfacl(file_name, acl_hashref, ...)
   HV *user_hash, *group_hash, *def_user_hash, *def_group_hash;
   SV **mask, **def_mask;
 
-  int acl_result;
   aclent_t *acl_ents;
   int num_acl_ents;
   struct stat stat_buf;

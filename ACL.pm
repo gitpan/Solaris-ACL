@@ -1,9 +1,21 @@
 package Solaris::ACL;
 
-# $Id: ACL.pm,v 1.13 2000/03/02 20:12:23 ian Exp $
+# $Id: ACL.pm,v 1.14 2000/04/07 22:47:19 ian Exp $
 
 # Change Log:
 # $Log: ACL.pm,v $
+# Revision 1.14  2000/04/07 22:47:19  ian
+# Version change to 0.06
+#
+# Calls to mask, groups(gid) and users(uid) now return -1 if the
+# requested entry does not exist.
+#
+# Internal structure documentation moved to the end, with a warning as
+# to its transitory nature.
+#
+# Fixed error in documentation of how to copy an ACL, which swapped
+# target and source.
+#
 # Revision 1.13  2000/03/02 20:12:23  ian
 # Version 0.05 release
 #
@@ -47,7 +59,7 @@ require AutoLoader;
 # Do not simply export all your public functions/methods/constants.
 
 @EXPORT = qw(getfacl setfacl);
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 bootstrap Solaris::ACL $VERSION;
 
@@ -57,7 +69,8 @@ bootstrap Solaris::ACL $VERSION;
 
 # report_or_set_or_delete either reports the value of $hash->{$ref},
 # or, if $val is set, sets $hash->{$ref} to $val.  If $val is -1, the
-# it instead deletes $hash->{$ref}.
+# it instead deletes $hash->{$ref}.  If $hash->{$ref} does not exist,
+# then -1 is returned.
 
 sub _report_or_set_or_delete
 {
@@ -75,7 +88,7 @@ sub _report_or_set_or_delete
     }
     else
     {
-	$hash->{$ref};
+	defined($hash->{$ref}) ? $hash->{$ref} : -1;
     }
 }
 
@@ -85,14 +98,14 @@ sub _report_or_set_or_delete
 # interfaces with _report_or_set_or_delete to manage the users and
 # groups hashes.  If _report_or_set_or_delete is called, then it may
 # have deleted the last key of a hash, in which case _generic_list
-# will delete the hash.
+# will delete the hash.  If this is a read request, and there is no
+# perm listed for the given uid, -1 is returned.
 
 sub _generic_list
 {
     my($list,$acl,$uid,$perm) = @_;
     if(defined($uid))
     {
-
 	# because if we do delete a key, we might need to also delete
 	# $acl->{$list}, we only call _report_or_set_or_delete in the
 	# event that $perm is set; otherwise, we just do the lookup
@@ -112,7 +125,8 @@ sub _generic_list
 	}
 	else
 	{
-	    $acl->{$list}->{$uid};
+	    (defined($acl->{$list}) && $acl->{$list}->{$uid}) ?
+		$acl->{$list}->{$uid} : -1;
 	}
     }
     else
@@ -140,7 +154,7 @@ Solaris::ACL - Perl extension for reading and setting Solaris Access Control Lis
 
 =head1 DESCRIPTION
 
-This module provides access to the system level acl(2) call,
+This module provides access to the system level C<acl>(2) call,
 allowing efficient setting and reading of Access Control Lists (ACLs)
 in perl.
 
@@ -194,16 +208,18 @@ argument, they set the permission to that argument.  For example:
   $user_perm = $acl->uperm;  # find out current owner permissions.
   $acl->operm(5);            # give others read-execute permissions.
 
+If no mask is set in the ACL, C<mask> returns -1.
+
 =item users
 
 =item groups
 
 Without arguments, return a list of users (by uid) or groups (by gid)
 with special ACL access.  When passed a uid/gid as an argument, return
-the permission for the given user/group.  When passed a uid/gid and a
-permission, give the specified user/group the indicated permission; if
-the permission is -1, remove any permissions for the specified
-user/group.
+the permission for the given user/group, or -1 if no permission is
+set in the ACL.  When passed a uid/gid and a permission, give the specified
+user/group the indicated permission; if the permission is -1, remove
+any permissions for the specified user/group.
 
 =item calc_mask
 
@@ -221,34 +237,6 @@ determined by mode.
 
 =back
 
-=head2 ACL structure
-
-All information passed to C<setfacl> returned from C<getfacl> is in
-the form of references to hashes.  A hash describing an ACL can have
-the following keys:
-
-=over
-
-=item uperm
-
-=item gperm
-
-=item operm
-
-=item mask
-
-Each of these keys have values containing permissions for the corresponding entity (user, group, other, mask).
-
-=item users
-
-=item groups
-
-Each of these keys (if existent) contain a reference to a hash whose
-keys are decimal representations of numbers, and whose values contain
-permissions for the user/group whose uid/gid is the number in the key.
-
-=back
-
 =head1 EXAMPLES
 
   $acl = new Solaris::ACL(0741);
@@ -257,22 +245,6 @@ permissions for the user/group whose uid/gid is the number in the key.
   $acl->calc_mask;
 
   $def_acl = new Solaris::ACL(0751);
-
-  # or:
-
-  $acl =     { uperm => 7,
-	       gperm => 4,
-	       operm => 1,
-	       mask => 6,
-               users => { scalar(getpwnam("iroberts")) => 2,
-                         scalar(getpwnam("rdb")) => 0
-                       }
-	     };
-
-  $def_acl = { uperm => 7,
-	       gperm => 5,
-	       operm => 1,
-	     };
 
   setfacl("working_dir", $acl, $def_acl);
 
@@ -288,9 +260,8 @@ permissions for the user/group whose uid/gid is the number in the key.
   setfacl("working_file", $acl2)
   print "uid 29 now has permission 6\n";
 
-
-  # to copy an acl from one file or directory to another:
-  setfacl($source_file, getfacl($target_file));
+  # to copy an acl from one file or directory to another;
+  setfacl($target_file, getfacl($source_file));
 
 =head1 RETURN VALUES
 
@@ -302,6 +273,30 @@ C<getfacl> returns a null list.  If either C<setfacl> or C<getfacl>
 are unsuccessful, the variable C<$Solaris::ACL::error> is set to a
 descriptive error string; in addition, if the failure was due to a
 system error, C<$!> is set.
+
+=head2 ACL structure
+
+WARNING: The internal structures described here are subject to change in future
+versions.
+
+All information passed to C<setfacl> returned from C<getfacl> is in
+the form of references to hashes.  A hash describing an ACL can have
+the following keys:
+
+=over
+
+=item uperm, gperm, operm, mask
+
+Each of these keys have values containing permissions for the
+corresponding entity (user, group, other, mask).
+
+=item groups, users
+
+Each of these keys (if existent) contain a reference to a hash whose
+keys are decimal representations of numbers, and whose values contain
+permissions for the user/group whose uid/gid is the number in the key.
+
+=back
 
 =head1 BUGS
 

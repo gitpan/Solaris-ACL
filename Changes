@@ -1,3 +1,27 @@
+2000-04-07 17:48  ian
+
+	* ACL.xs: Fixed bug where attempts to give extra groups ACL access
+	resulted in corresponding users getting access instead.
+	
+	Removed to useless declarations of acl_result variable.
+
+2000-04-07 17:47  ian
+
+	* ACL.pm: Version change to 0.06
+	
+	Calls to mask, groups(gid) and users(uid) now return -1 if the
+	requested entry does not exist.
+	
+	Internal structure documentation moved to the end, with a warning
+	as to its transitory nature.
+	
+	Fixed error in documentation of how to copy an ACL, which swapped
+	target and source.
+
+2000-04-07 17:37  ian
+
+	* test.pl: Added group entries to the test ACLs
+
 2000-03-02 14:12  ian
 
 	* ACL.pm, Makefile.PL: Version 0.05 release

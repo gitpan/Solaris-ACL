@@ -1,7 +1,10 @@
-# $Id: test.pl,v 1.9 2000/02/13 21:31:53 ian Exp $
+# $Id: test.pl,v 1.10 2000/04/07 22:37:02 ian Exp $
 
 # Change Log:
 # $Log: test.pl,v $
+# Revision 1.10  2000/04/07 22:37:02  ian
+# Added group entries to the test ACLs
+#
 # Revision 1.9  2000/02/13 21:31:53  ian
 # Fixed typo in test.pl
 # The version 0.03 release
@@ -49,6 +52,7 @@ $acl->mask(4);
 for $i (0..7)
 {
     $acl->users($i+10,$i);
+    $acl->groups($i+20, $i);
 }
 $acl->calc_mask;
 
@@ -56,6 +60,7 @@ $def_acl = new Solaris::ACL(0751);
 for $i (0..7)
 {
     $def_acl->users($i+10,$i);
+    $def_acl->groups($i+20,$i);
 }
 $def_acl->calc_mask;
 
